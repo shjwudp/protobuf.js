@@ -2,29 +2,31 @@
 module.exports = parse;
 
 parse.filename = null;
-parse.defaults = { keepCase: false };
+parse.defaults = {
+    keepCase: false
+};
 
-var tokenize  = require("./tokenize"),
-    Root      = require("./root"),
-    Type      = require("./type"),
-    Field     = require("./field"),
-    MapField  = require("./mapfield"),
-    OneOf     = require("./oneof"),
-    Enum      = require("./enum"),
-    Service   = require("./service"),
-    Method    = require("./method"),
-    types     = require("./types"),
-    util      = require("./util");
+var tokenize = require("./tokenize"),
+    Root = require("./root"),
+    Type = require("./type"),
+    Field = require("./field"),
+    MapField = require("./mapfield"),
+    OneOf = require("./oneof"),
+    Enum = require("./enum"),
+    Service = require("./service"),
+    Method = require("./method"),
+    types = require("./types"),
+    util = require("./util");
 
-var base10Re    = /^[1-9][0-9]*$/,
+var base10Re = /^[1-9][0-9]*$/,
     base10NegRe = /^-?[1-9][0-9]*$/,
-    base16Re    = /^0[x][0-9a-fA-F]+$/,
+    base16Re = /^0[x][0-9a-fA-F]+$/,
     base16NegRe = /^-?0[x][0-9a-fA-F]+$/,
-    base8Re     = /^0[0-7]+$/,
-    base8NegRe  = /^-?0[0-7]+$/,
-    numberRe    = /^(?![eE])[0-9]*(?:\.[0-9]*)?(?:[eE][+-]?[0-9]+)?$/,
-    nameRe      = /^[a-zA-Z_][a-zA-Z_0-9]*$/,
-    typeRefRe   = /^(?:\.?[a-zA-Z_][a-zA-Z_0-9]*)(?:\.[a-zA-Z_][a-zA-Z_0-9]*)*$/,
+    base8Re = /^0[0-7]+$/,
+    base8NegRe = /^-?0[0-7]+$/,
+    numberRe = /^(?![eE])[0-9]*(?:\.[0-9]*)?(?:[eE][+-]?[0-9]+)?$/,
+    nameRe = /^[a-zA-Z_][a-zA-Z_0-9]*$/,
+    typeRefRe = /^(?:\.?[a-zA-Z_][a-zA-Z_0-9]*)(?:\.[a-zA-Z_][a-zA-Z_0-9]*)*$/,
     fqTypeRefRe = /^(?:\.[a-zA-Z_][a-zA-Z_0-9]*)+$/;
 
 /**
@@ -84,7 +86,9 @@ function parse(source, root, options) {
 
     var ptr = root;
 
-    var applyCase = options.keepCase ? function(name) { return name; } : util.camelCase;
+    var applyCase = options.keepCase ? function (name) {
+        return name;
+    } : util.camelCase;
 
     /* istanbul ignore next */
     function illegal(token, name, insideTryCatch) {
@@ -116,9 +120,11 @@ function parse(source, root, options) {
             case "\"":
                 push(token);
                 return readString();
-            case "true": case "TRUE":
+            case "true":
+            case "TRUE":
                 return true;
-            case "false": case "FALSE":
+            case "false":
+            case "FALSE":
                 return false;
         }
         try {
@@ -140,7 +146,7 @@ function parse(source, root, options) {
             if (acceptStrings && ((token = peek()) === "\"" || token === "'"))
                 target.push(readString());
             else
-                target.push([ start = parseId(next()), skip("to", true) ? parseId(next()) : start ]);
+                target.push([start = parseId(next()), skip("to", true) ? parseId(next()) : start]);
         } while (skip(",", true));
         skip(";");
     }
@@ -152,9 +158,14 @@ function parse(source, root, options) {
             token = token.substring(1);
         }
         switch (token) {
-            case "inf": case "INF": case "Inf":
+            case "inf":
+            case "INF":
+            case "Inf":
                 return sign * Infinity;
-            case "nan": case "NAN": case "Nan": case "NaN":
+            case "nan":
+            case "NAN":
+            case "Nan":
+            case "NaN":
                 return NaN;
             case "0":
                 return 0;
@@ -176,7 +187,9 @@ function parse(source, root, options) {
 
     function parseId(token, acceptNegative) {
         switch (token) {
-            case "max": case "MAX": case "Max":
+            case "max":
+            case "MAX":
+            case "Max":
                 return 536870911;
             case "0":
                 return 0;
@@ -414,13 +427,13 @@ function parse(source, root, options) {
                     parseField(type, token);
                     break;
 
-                /* istanbul ignore next */
+                    /* istanbul ignore next */
                 default:
                     throw illegal(token); // there are no groups with proto3 semantics
             }
         });
         parent.add(type)
-              .add(field);
+            .add(field);
     }
 
     function parseMapField(parent) {
@@ -489,19 +502,19 @@ function parse(source, root, options) {
 
         var enm = new Enum(token);
         ifBlock(enm, function parseEnum_block(token) {
-          switch(token) {
-            case "option":
-              parseOption(enm, token);
-              skip(";");
-              break;
+            switch (token) {
+                case "option":
+                    parseOption(enm, token);
+                    skip(";");
+                    break;
 
-            case "reserved":
-              readRanges(enm.reserved || (enm.reserved = []), true);
-              break;
+                case "reserved":
+                    readRanges(enm.reserved || (enm.reserved = []), true);
+                    break;
 
-            default:
-              parseEnumValue(enm, token);
-          }
+                default:
+                    parseEnumValue(enm, token);
+            }
         });
         parent.add(enm);
     }
@@ -552,25 +565,45 @@ function parse(source, root, options) {
     }
 
     function parseOptionValue(parent, name) {
-        if (skip("{", true)) { // { a: "foo" b { c: "bar" } }
-            do {
+        // OptionValue = string
+        //     | "{" "}"
+        //     | "{" Members "}"
+        // 
+        // Members = Pair
+        //     | Pair "," Members
+        // 
+        // Pair = name ":" Value
+        // 
+        // Value = string
+        //     | SemicolonObject
+        // 
+        // SemicolonObject = string [ ";" ]
+        //     | "{" "}" [ ";" ]
+        //     | "{" Members "}" [ ";" ]
+        if (skip("{", true)) {
+            while (!skip("}", true)) {
                 /* istanbul ignore if */
                 if (!nameRe.test(token = next()))
                     throw illegal(token, "name");
 
-                if (peek() === "{")
+                if (peek() === "{") {
                     parseOptionValue(parent, name + "." + token);
-                else {
+                    skip(";", true);
+                } else {
                     skip(":");
-                    if (peek() === "{")
+                    if (peek() === "{") {
                         parseOptionValue(parent, name + "." + token);
-                    else
+                        skip(";", true);
+                    } else {
                         setOption(parent, name + "." + token, readValue(true));
+                        skip(";", true);
+                    }
                 }
                 skip(",", true);
-            } while (!skip("}", true));
-        } else
+            }
+        } else {
             setOption(parent, name, readValue(true));
+        }
         // Does not enforce a delimiter to be universal
     }
 
@@ -629,7 +662,9 @@ function parse(source, root, options) {
             throw illegal(token);
 
         requestType = token;
-        skip(")"); skip("returns"); skip("(");
+        skip(")");
+        skip("returns");
+        skip("(");
         if (skip("stream", true))
             responseStream = true;
 
@@ -737,11 +772,11 @@ function parse(source, root, options) {
 
     parse.filename = null;
     return {
-        "package"     : pkg,
-        "imports"     : imports,
-         weakImports  : weakImports,
-         syntax       : syntax,
-         root         : root
+        "package": pkg,
+        "imports": imports,
+        weakImports: weakImports,
+        syntax: syntax,
+        root: root
     };
 }
 
